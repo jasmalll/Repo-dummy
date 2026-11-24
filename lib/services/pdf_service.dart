@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -17,6 +18,8 @@ class PdfService {
     required List<ExpenseItem> expenses,
   }) async {
     final pdf = pw.Document();
+    final logoBytes = (await rootBundle.load('assets/branding/caterpro_mark.png')).buffer.asUint8List();
+    final logo = pw.MemoryImage(logoBytes);
     const navy = PdfColor.fromInt(0xFF071B33);
     const navyLight = PdfColor.fromInt(0xFF102B49);
     const gold = PdfColor.fromInt(0xFFE7B84F);
@@ -88,16 +91,7 @@ class PdfService {
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
-                pw.Container(
-                  width: 43, height: 43,
-                  alignment: pw.Alignment.center,
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: gold, width: 1.4),
-                    borderRadius: pw.BorderRadius.circular(11),
-                  ),
-                  child: pw.Text('CP', style: pw.TextStyle(
-                    color: gold, fontSize: 17, fontWeight: pw.FontWeight.bold)),
-                ),
+                pw.Container(width: 43, height: 43, child: pw.Image(logo)),
                 pw.SizedBox(width: 13),
                 pw.Expanded(child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -373,6 +367,163 @@ class PdfService {
           pw.Text(value, style: pw.TextStyle(fontSize: 8.5, color: color, fontWeight: pw.FontWeight.bold)),
         ]),
       );
+
+  // Complete lifetime work history report. It uses the same stored records and
+  // derives totals from the existing WorkItem / ExpenseItem fields.
+  static Future<void> exportAllWorksReport({
+    required List<WorkItem> works,
+    required List<ExpenseItem> expenses,
+  }) async {
+    final pdf = pw.Document();
+    const navy = PdfColor.fromInt(0xFF071B33);
+    const gold = PdfColor.fromInt(0xFFE7B84F);
+    const ink = PdfColor.fromInt(0xFF172638);
+    const muted = PdfColor.fromInt(0xFF718096);
+    const line = PdfColor.fromInt(0xFFE2E8F0);
+    const green = PdfColor.fromInt(0xFF16834A);
+    const red = PdfColor.fromInt(0xFFD94141);
+    final sortedWorks = List<WorkItem>.from(works)
+      ..sort((a, b) => b.date.compareTo(a.date));
+    final sortedExpenses = List<ExpenseItem>.from(expenses)
+      ..sort((a, b) => b.date.compareTo(a.date));
+    final income = works.fold<double>(0, (sum, w) => sum + w.amount);
+    final pending = works.fold<double>(0, (sum, w) => sum + (w.isPaid ? 0.0 : w.balance));
+    final received = income - pending;
+    final expenseTotal = expenses.fold<double>(0, (sum, e) => sum + e.amount);
+    final savings = received - expenseTotal;
+    final paidCount = works.where((w) => w.isPaid).length;
+    final pendingCount = works.length - paidCount;
+    final generated = DateTime.now();
+    final generatedLabel = '${generated.day.toString().padLeft(2, '0')}/'
+        '${generated.month.toString().padLeft(2, '0')}/${generated.year}';
+    final logoBytes = (await rootBundle.load('assets/branding/caterpro_mark.png'))
+        .buffer.asUint8List();
+    final logo = pw.MemoryImage(logoBytes);
+    String money(num value) => 'Rs. ${value.toStringAsFixed(0)}';
+
+    pdf.addPage(pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.fromLTRB(26, 24, 26, 34),
+      header: (context) => pw.Container(
+        padding: const pw.EdgeInsets.only(bottom: 8),
+        decoration: const pw.BoxDecoration(
+          border: pw.Border(bottom: pw.BorderSide(color: line, width: .7))),
+        child: pw.Row(children: [
+          pw.Container(width: 25, height: 25, child: pw.Image(logo)),
+          pw.SizedBox(width: 7),
+          pw.Text('CATERPRO', style: pw.TextStyle(fontSize: 9,
+            fontWeight: pw.FontWeight.bold, letterSpacing: 1.5, color: navy)),
+          pw.Spacer(),
+          pw.Text('COMPLETE WORK HISTORY', style: const pw.TextStyle(
+            fontSize: 7, letterSpacing: .8, color: muted)),
+        ]),
+      ),
+      footer: (context) => pw.Container(
+        padding: const pw.EdgeInsets.only(top: 7),
+        decoration: const pw.BoxDecoration(
+          border: pw.Border(top: pw.BorderSide(color: line, width: .7))),
+        child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+          pw.Text('POWERED BY CATERPRO', style: pw.TextStyle(fontSize: 7,
+            fontWeight: pw.FontWeight.bold, letterSpacing: .8, color: muted)),
+          pw.Text('Page ${context.pageNumber} of ${context.pagesCount}',
+            style: const pw.TextStyle(fontSize: 7, color: muted)),
+        ]),
+      ),
+      build: (context) => [
+        pw.Container(
+          padding: const pw.EdgeInsets.fromLTRB(16, 14, 16, 14),
+          decoration: pw.BoxDecoration(color: navy,
+            borderRadius: pw.BorderRadius.circular(11),
+            border: const pw.Border(bottom: pw.BorderSide(color: gold, width: 2.5))),
+          child: pw.Row(children: [
+            pw.Container(width: 43, height: 43, child: pw.Image(logo)),
+            pw.SizedBox(width: 11),
+            pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+              pw.Text('All Works Report', style: pw.TextStyle(color: PdfColors.white,
+                fontSize: 19, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 3),
+              pw.Text('COMPLETE CATERING WORK & FINANCE HISTORY',
+                style: const pw.TextStyle(color: PdfColor.fromInt(0xFFD5DFEA), fontSize: 7, letterSpacing: .5)),
+            ])),
+            pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+              pw.Text('${works.length} WORKS', style: pw.TextStyle(color: gold,
+                fontSize: 11, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 4),
+              pw.Text('GENERATED $generatedLabel', style: const pw.TextStyle(
+                color: PdfColor.fromInt(0xFFD5DFEA), fontSize: 6.5)),
+            ]),
+          ]),
+        ),
+        pw.SizedBox(height: 13),
+        pw.Row(children: [
+          pw.Expanded(child: _premiumMetric('TOTAL WORK VALUE', money(income), green, const PdfColor.fromInt(0xFFEAF7EF))),
+          pw.SizedBox(width: 6),
+          pw.Expanded(child: _premiumMetric('RECEIVED', money(received), green, const PdfColor.fromInt(0xFFEAF7EF))),
+          pw.SizedBox(width: 6),
+          pw.Expanded(child: _premiumMetric('PENDING', money(pending), const PdfColor.fromInt(0xFFB96A0B), const PdfColor.fromInt(0xFFFFF4E5))),
+          pw.SizedBox(width: 6),
+          pw.Expanded(child: _premiumMetric('TOTAL WORKS', '${works.length}', navy, const PdfColor.fromInt(0xFFF0F3F8))),
+        ]),
+        pw.SizedBox(height: 7),
+        pw.Row(children: [
+          pw.Expanded(child: _premiumMetric('TOTAL EXPENSES', money(expenseTotal), red, const PdfColor.fromInt(0xFFFFEEEE))),
+          pw.SizedBox(width: 6),
+          pw.Expanded(child: _premiumMetric('NET SAVINGS', money(savings), navy, const PdfColor.fromInt(0xFFEDF3FA))),
+          pw.SizedBox(width: 6),
+          pw.Expanded(child: _premiumMetric('PAID WORKS', '$paidCount', green, const PdfColor.fromInt(0xFFEAF7EF))),
+          pw.SizedBox(width: 6),
+          pw.Expanded(child: _premiumMetric('PENDING WORKS', '$pendingCount', const PdfColor.fromInt(0xFFB96A0B), const PdfColor.fromInt(0xFFFFF4E5))),
+        ]),
+        pw.SizedBox(height: 17),
+        _premiumSectionTitle('01', 'Complete Catering Work History', 'ALL DATES'),
+        pw.SizedBox(height: 7),
+        if (sortedWorks.isEmpty)
+          _emptyReportState('No catering works have been recorded yet.')
+        else
+          _premiumTable(
+            headers: ['#', 'DATE', 'VENUE / EVENT DETAILS', 'AMOUNT', 'BALANCE', 'STATUS'],
+            widths: [0.42, 0.83, 3.05, 0.82, 0.82, 0.78],
+            rows: sortedWorks.map((w) => [
+              w.number, w.dateText,
+              '${w.venue}\n${w.location} • ${w.eventType}\n${w.reportingTime} • ${w.paxCount}${w.note.trim().isEmpty ? '' : '\n${w.note}'}',
+              money(w.amount), money(w.balance), w.isPaid ? 'Paid' : 'Pending',
+            ]).toList(), statusColumn: 5),
+        pw.SizedBox(height: 16),
+        _premiumSectionTitle('02', 'Complete Expense History', 'ALL DATES'),
+        pw.SizedBox(height: 7),
+        if (sortedExpenses.isEmpty)
+          _emptyReportState('No expenses have been recorded yet.')
+        else
+          _premiumTable(
+            headers: ['#', 'DATE', 'DESCRIPTION / SHOP', 'CATEGORY', 'AMOUNT'],
+            widths: [0.42, 0.83, 2.85, 1.05, 0.9],
+            rows: sortedExpenses.map((e) => [
+              e.number, e.dateText,
+              e.subNote.trim().isEmpty ? e.title : '${e.title} (${e.subNote})',
+              e.category, money(e.amount),
+            ]).toList()),
+        pw.SizedBox(height: 14),
+        pw.Container(
+          padding: const pw.EdgeInsets.all(12),
+          decoration: pw.BoxDecoration(color: const PdfColor.fromInt(0xFFF5F7FA),
+            borderRadius: pw.BorderRadius.circular(9), border: pw.Border.all(color: line)),
+          child: pw.Column(children: [
+            _financialLine('Total work value', money(income), navy),
+            _financialLine('Payments received', money(received), green),
+            _financialLine('Pending balance', money(pending), const PdfColor.fromInt(0xFFB96A0B)),
+            _financialLine('Total expenses', money(expenseTotal), red),
+            _financialLine('Net savings (received − expenses)', money(savings), navy, last: true),
+          ]),
+        ),
+        pw.SizedBox(height: 12),
+        pw.Align(alignment: pw.Alignment.center,
+          child: pw.Text('Efficient Planning. Successful Events.',
+            style: pw.TextStyle(fontSize: 7, color: muted, fontStyle: pw.FontStyle.italic))),
+      ],
+    ));
+
+    await Printing.sharePdf(bytes: await pdf.save(), filename: 'CaterPro_All_Works_Report.pdf');
+  }
 
   // 2. SINGLE WORK RECEIPT / INVOICE GENERATOR (For individual work sharing)
   static Future<void> exportWorkInvoice(WorkItem work) async {
