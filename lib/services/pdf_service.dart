@@ -55,9 +55,13 @@ class PdfService {
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('CATERPRO', style: pw.TextStyle(
+              pw.Row(children: [
+                pw.Container(width: 24, height: 24, child: pw.Image(logo, fit: pw.BoxFit.contain)),
+                pw.SizedBox(width: 7),
+                pw.Text('CATERPRO', style: pw.TextStyle(
                 fontSize: 9, fontWeight: pw.FontWeight.bold,
                 letterSpacing: 2, color: navy)),
+              ]),
               pw.Text('MONTHLY BUSINESS REPORT', style: const pw.TextStyle(
                 fontSize: 7.5, letterSpacing: 1.1, color: muted)),
             ],
@@ -324,7 +328,7 @@ class PdfService {
             }
             return pw.Padding(
               padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 7),
-              child: pw.Text(value, maxLines: 3, style: pw.TextStyle(
+              child: pw.Text(value, maxLines: 5, style: pw.TextStyle(
                 fontSize: 6.8, color: const PdfColor.fromInt(0xFF243447),
                 fontWeight: columnIndex == row.length - 1 ? pw.FontWeight.bold : pw.FontWeight.normal)),
             );
@@ -528,6 +532,10 @@ class PdfService {
   // 2. SINGLE WORK RECEIPT / INVOICE GENERATOR (For individual work sharing)
   static Future<void> exportWorkInvoice(WorkItem work) async {
     final pdf = pw.Document();
+    final logoBytes = (await rootBundle.load('assets/branding/caterpro_mark.png')).buffer.asUint8List();
+    final logo = pw.MemoryImage(logoBytes);
+    const navy = PdfColor.fromInt(0xFF071B33);
+    const gold = PdfColor.fromInt(0xFFE7B84F);
 
     pdf.addPage(
       pw.Page(
@@ -537,23 +545,22 @@ class PdfService {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        'CaterPro Catering Invoice',
-                        style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
-                      ),
-                      pw.Text('Booking Confirmation & Bill', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
-                    ],
-                  ),
-                  pw.Text('Work #${work.number}', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                ],
+              pw.Container(
+                padding: const pw.EdgeInsets.all(16),
+                decoration: pw.BoxDecoration(color: navy, borderRadius: pw.BorderRadius.circular(12),
+                  border: const pw.Border(bottom: pw.BorderSide(color: gold, width: 3))),
+                child: pw.Row(children: [
+                  pw.Container(width: 54, height: 54, child: pw.Image(logo, fit: pw.BoxFit.contain)),
+                  pw.SizedBox(width: 12),
+                  pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                    pw.Text('CATERPRO', style: pw.TextStyle(fontSize: 19, fontWeight: pw.FontWeight.bold, color: PdfColors.white, letterSpacing: 1.2)),
+                    pw.SizedBox(height: 3),
+                    pw.Text('CATERING INVOICE  •  BOOKING CONFIRMATION', style: const pw.TextStyle(fontSize: 7, color: PdfColor.fromInt(0xFFD5DFEA), letterSpacing: .5)),
+                  ])),
+                  pw.Text('WORK #${work.number}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: gold)),
+                ]),
               ),
-              pw.Divider(thickness: 1, color: PdfColors.grey300, height: 24),
+              pw.SizedBox(height: 22),
               pw.SizedBox(height: 10),
 
               pw.Text('Event Details', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
